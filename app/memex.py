@@ -1,7 +1,12 @@
+from app.logger import Logger
+from app.schemes import HTTPScheme
 from app.constants import ENTITY_SYMBOL_MAPPING, DEFAULT_URL
 from app.URL import URL
 
 class Memex:
+  def __enter__(self):
+    return Memex()
+
   def show(self, body, encoding, view_mode=False):
     show_data = body
     if encoding:
@@ -48,3 +53,7 @@ class Memex:
       encoding=url.scheme_request.body_encoding,
       view_mode=url.get_view_mode()
     )
+  
+  def __exit__(self, *args):
+    Logger.message("Closing all sockets...")
+    HTTPScheme.close_sockets()
