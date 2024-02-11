@@ -70,6 +70,6 @@ class HTTPScheme(BaseScheme):
     return response_headers
   
   def get_request_data(self):
-    return (f"GET {self.path} HTTP/1.0\r\n"
+    return (f"GET {self.path} HTTP/1.1\r\n"
       + self.get_request_headers() +
       "\r\n").encode('utf-8')
