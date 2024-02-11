@@ -1,5 +1,5 @@
 import socket
-from app.constants import FORWARD_SLASH, CONTENT_TYPE
+from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH
 from app.schemes import BaseScheme
 
 class HTTPScheme(BaseScheme):
@@ -25,7 +25,7 @@ class HTTPScheme(BaseScheme):
       self.port = int(port)
 
   def get_request_headers(self):
-    headers = {"Connection": "close", "User-Agent": "memz-0.0", "Host": self.host, 'Content-type': 'utf-16'}
+    headers = { "User-Agent": "memz-0.0", "Host": self.host, 'Content-type': 'utf-8'}
     header_string = ""
     for header in headers:
       header_string += f"{header}: {headers[header]}\r\n"
@@ -53,8 +53,11 @@ class HTTPScheme(BaseScheme):
     assert "transfer-encoding" not in response_headers
     assert "content-encoding" not in response_headers
 
+    content_length = response_headers.get(CONTENT_LENGTH)
+    content_length = int(content_length) if content_length != None else None
+
     self.body_encoding = self.get_body_encoding(response_headers.get(CONTENT_TYPE))
-    self.body = response.read()
+    self.body = response.read(content_length)
     self.get_socket().close()
   
   def get_response_headers(self, response):
