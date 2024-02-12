@@ -63,25 +63,22 @@ class HTTPScheme(BaseScheme):
   # **** Pool Handling methods: END **** #
 
 
-  def reset_redirection_count(cls):
+  def reset_redirection_count(self):
     HTTPScheme.__REDIRECTION_COUNT = 0
 
-  def allow_redirection_count(cls):
-    if HTTPScheme.__REDIRECTION_COUNT <= MAX_REDIRECTION_COUNT:
+  def allow_redirection_count(self):
+    if HTTPScheme.__REDIRECTION_COUNT < MAX_REDIRECTION_COUNT:
       Logger.message("Redirecting...")
       HTTPScheme.__REDIRECTION_COUNT += 1
       return True
     Logger.error("Max Redirection Count reached!")
-    cls.reset_redirection_count()
+    self.reset_redirection_count()
     return False
 
   def init_socket(self):
     return socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
-  
+
   def assign_socket(self):
-    Logger.message("Finding socket...")
-    Logger.debug("Current Pool:")
-    Logger.debug(self.__SOCKET_POOL)
     existing_sock = self.__get_socket_from_pool()
     if not existing_sock:
       Logger.message("Creating new socket..")
