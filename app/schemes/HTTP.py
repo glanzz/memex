@@ -64,14 +64,15 @@ class HTTPScheme(BaseScheme):
 
 
   def reset_redirection_count(cls):
-    cls.__REDIRECTION_COUNT = 0
+    HTTPScheme.__REDIRECTION_COUNT = 0
 
   def allow_redirection_count(cls):
-    if cls.__REDIRECTION_COUNT <= MAX_REDIRECTION_COUNT:
+    if HTTPScheme.__REDIRECTION_COUNT <= MAX_REDIRECTION_COUNT:
       Logger.message("Redirecting...")
-      cls.__REDIRECTION_COUNT += 1
+      HTTPScheme.__REDIRECTION_COUNT += 1
       return True
     Logger.error("Max Redirection Count reached!")
+    cls.reset_redirection_count()
     return False
 
   def init_socket(self):
@@ -97,6 +98,7 @@ class HTTPScheme(BaseScheme):
   def request(self):
     self.assign_socket()
     request_data = self.get_request_data()
+    Logger.debug(request_data)
     self.get_socket().sendall(request_data)
 
     response = self.get_socket().makefile("r", encoding="utf-8", newline="\r\n")
@@ -107,8 +109,7 @@ class HTTPScheme(BaseScheme):
     assert "transfer-encoding" not in response_headers
     assert "content-encoding" not in response_headers
 
-
-    if REDIRECTION_STATUS_RANGE[0] <= int(status) < REDIRECTION_STATUS_RANGE[1] and self.allow_redirection_count():
+    if (REDIRECTION_STATUS_RANGE[0] <= int(status) < REDIRECTION_STATUS_RANGE[1]) and self.allow_redirection_count():
       self.redirection(response_headers=response_headers)
     else:
       content_length = response_headers.get(CONTENT_LENGTH)
