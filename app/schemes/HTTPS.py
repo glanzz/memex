@@ -1,7 +1,9 @@
 import ssl
+from app.constants import Schemes
 from app.schemes import HTTPScheme
 
 class HTTPSScheme(HTTPScheme):
+  name = Schemes.HTTPS.name
   def derive_port(self):
     self.port = 443
     self._get_user_specified_port()

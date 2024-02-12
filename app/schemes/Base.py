@@ -3,11 +3,18 @@ class BaseScheme:
   All Schemes must extend base scheme and implement the
   request() which returns generates body and body_encoding
   '''
-  def __init__(self, url):
+  def __init__(self, url, provider):
+    '''
+    url:      URL for which scheme is called
+    provider: Object creator of the calling class. 
+              Usecase is to handle redirections which
+              have recursive call to URL
+    '''
     self.body_encoding = None
     self.body = None
     self.url = url
     self.set_path()
+    self.provider = provider
 
   def set_path(self):
       self.path = self.url

@@ -6,7 +6,7 @@ class URL:
     self.url = url
     self.set_view_mode()
     self.set_scheme()
-    self.scheme_request = self.get_scheme_request_handler()(self.url)
+    self.scheme_request = self.get_scheme_request_handler()(self.url, self.get_provider)
   
   def get_scheme_request_handler(self):
     if self.scheme == Schemes.HTTP.value:
@@ -37,5 +37,9 @@ class URL:
 
   def get_view_mode(self):
     return self.view_mode
+  
+  def get_provider(self, url):
+    return URL(url=url)
+
 
     

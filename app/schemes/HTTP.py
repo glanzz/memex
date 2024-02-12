@@ -1,15 +1,17 @@
 import socket
 from app.logger import Logger
-from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH
+from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH, LOCATION, Schemes, MAX_REDIRECTION_COUNT, REDIRECTION_STATUS_RANGE
 from app.schemes import BaseScheme
 
 class HTTPScheme(BaseScheme):
+  name = Schemes.HTTP.name
   # Caches the schemes socket used depth 1 key is host value name depth 2 key is port value
   # Eg: {"memex.com": {80: <socket1>, 443: <socket2>}}
   __SOCKET_POOL = {}
+  __REDIRECTION_COUNT = 0
 
-  def __init__(self, url):
-    super().__init__(url)
+  def __init__(self, url, provider):
+    super().__init__(url, provider)
     self.socket = None
 
   def set_path(self):
@@ -59,7 +61,19 @@ class HTTPScheme(BaseScheme):
     cls.__SOCKET_POOL = {} # Reset pool
 
   # **** Pool Handling methods: END **** #
-  
+
+
+  def reset_redirection_count(cls):
+    cls.__REDIRECTION_COUNT = 0
+
+  def allow_redirection_count(cls):
+    if cls.__REDIRECTION_COUNT <= MAX_REDIRECTION_COUNT:
+      Logger.message("Redirecting...")
+      cls.__REDIRECTION_COUNT += 1
+      return True
+    Logger.error("Max Redirection Count reached!")
+    return False
+
   def init_socket(self):
     return socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=socket.IPPROTO_TCP)
   
@@ -83,21 +97,36 @@ class HTTPScheme(BaseScheme):
   def request(self):
     self.assign_socket()
     request_data = self.get_request_data()
-    self.get_socket().send(request_data)
+    self.get_socket().sendall(request_data)
 
     response = self.get_socket().makefile("r", encoding="utf-8", newline="\r\n")
     statusline = response.readline()
     version, status, explaination = statusline.split(" ", 2)
+
     response_headers = self.get_response_headers(response=response)
     assert "transfer-encoding" not in response_headers
     assert "content-encoding" not in response_headers
 
-    content_length = response_headers.get(CONTENT_LENGTH)
-    content_length = int(content_length) if content_length != None else None
 
-    self.body_encoding = self.get_body_encoding(response_headers.get(CONTENT_TYPE))
-    self.body = response.read(content_length)
+    if REDIRECTION_STATUS_RANGE[0] <= int(status) < REDIRECTION_STATUS_RANGE[1] and self.allow_redirection_count():
+      self.redirection(response_headers=response_headers)
+    else:
+      content_length = response_headers.get(CONTENT_LENGTH)
+      content_length = int(content_length) if content_length != None else None
 
+      self.body_encoding = self.get_body_encoding(response_headers.get(CONTENT_TYPE))
+      self.body = response.read(content_length)
+
+  def redirection(self, response_headers):
+    redirection_location = response_headers[LOCATION]
+    if redirection_location.startswith("/"):
+      self.path = redirection_location
+      self.request()
+    else:
+      redirection_provider = self.provider(url=redirection_location)
+      redirection_provider.scheme_request.request()
+      self.body_encoding = redirection_provider.scheme_request.body_encoding
+      self.body = redirection_provider.scheme_request.body
 
   def get_response_headers(self, response):
     response_headers = {}

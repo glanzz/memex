@@ -21,3 +21,7 @@ ENTITY_SYMBOL_MAPPING = {
   "gt": ">",
   "amp": "&",
 }
+
+MAX_REDIRECTION_COUNT = 1
+
+REDIRECTION_STATUS_RANGE = (300, 400)
