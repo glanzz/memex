@@ -1,7 +1,8 @@
 import socket
 from app.logger import Logger
-from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH, LOCATION, Schemes, MAX_REDIRECTION_COUNT, REDIRECTION_STATUS_RANGE
+from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH, LOCATION, Schemes, MAX_REDIRECTION_COUNT, REDIRECTION_STATUS_RANGE, STATUS_CODE_OK, CACHE_CONTROL, DEFAULT_CACHE_TIME
 from app.schemes import BaseScheme
+from app.Cache import Cache
 
 class HTTPScheme(BaseScheme):
   name = Schemes.HTTP.name
@@ -92,6 +93,7 @@ class HTTPScheme(BaseScheme):
   def get_socket(self) -> socket.socket:
     return self.socket
 
+  @Cache.return_cached_request
   def request(self):
     self.assign_socket()
     request_data = self.get_request_data()
@@ -101,19 +103,44 @@ class HTTPScheme(BaseScheme):
     response = self.get_socket().makefile("r", encoding="utf-8", newline="\r\n")
     statusline = response.readline()
     version, status, explaination = statusline.split(" ", 2)
+    status = int(status)
 
     response_headers = self.get_response_headers(response=response)
     assert "transfer-encoding" not in response_headers
     assert "content-encoding" not in response_headers
 
-    if (REDIRECTION_STATUS_RANGE[0] <= int(status) < REDIRECTION_STATUS_RANGE[1]) and self.allow_redirection_count():
+    if (REDIRECTION_STATUS_RANGE[0] <= status < REDIRECTION_STATUS_RANGE[1]) and self.allow_redirection_count():
       self.redirection(response_headers=response_headers)
     else:
       content_length = response_headers.get(CONTENT_LENGTH)
       content_length = int(content_length) if content_length != None else None
-
       self.body_encoding = self.get_body_encoding(response_headers.get(CONTENT_TYPE))
       self.body = response.read(content_length)
+      if status == STATUS_CODE_OK: # Add check when supported request type more than GET: Allow only if request method is GET
+        cache_control_header = response_headers.get(CACHE_CONTROL)
+        self.cache_request(file_content=self.body, encoding_type=self.body_encoding, cache_header=cache_control_header)
+
+  def construct_url(self):
+    return f"{Schemes[self.name].value}://{self.host}:{self.port}{self.path}"
+
+  
+  def cache_request(self, file_content, encoding_type, cache_header):
+    cache_restrictions = {}
+    if cache_header:
+      cache_items = CACHE_CONTROL.split(",")
+      for cache_item in cache_items:
+        if "no-cache" in cache_item:
+          cache_restrictions["disable"] = True
+          break
+        if "max-age" in cache_item:
+          cache_restrictions["cache_time"] = int(cache_item.trim().replace("max-age="))
+    if not cache_restrictions.get("disable"):
+      Cache.cache_file(
+        key=self.construct_url(),
+        file_content=file_content,
+        encoding_type=encoding_type,
+        cache_time=cache_restrictions.get("cache_time", DEFAULT_CACHE_TIME)
+      )
 
   def redirection(self, response_headers):
     redirection_location = response_headers[LOCATION]
@@ -139,3 +166,4 @@ class HTTPScheme(BaseScheme):
     return (f"GET {self.path} HTTP/1.1\r\n"
       + self.get_request_headers() +
       "\r\n").encode('utf-8')
+  

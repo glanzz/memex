@@ -2,9 +2,11 @@ from app.logger import Logger
 from app.schemes import HTTPScheme
 from app.constants import ENTITY_SYMBOL_MAPPING, DEFAULT_URL
 from app.URL import URL
+from app.Cache import Cache
 
 class Memex:
   def __enter__(self):
+    Cache.safe_init_folder()
     return Memex()
 
   def show(self, body, encoding, view_mode=False):
@@ -57,3 +59,4 @@ class Memex:
   def __exit__(self, *args):
     Logger.message("Closing all sockets...")
     HTTPScheme.close_sockets()
+    Cache.write() # Persist cache details for further use
