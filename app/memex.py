@@ -10,9 +10,7 @@ class Memex:
     return Memex()
 
   def show(self, body, encoding, view_mode=False):
-    show_data = body
-    if encoding:
-      show_data = body.encode('utf-8').decode(encoding)
+    show_data = body.decode(encoding if encoding else 'utf-8')
     in_tag = False
 
     skip_till = None
