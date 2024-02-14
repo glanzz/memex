@@ -1,6 +1,7 @@
+import gzip
 import socket
 from app.logger import Logger
-from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH, LOCATION, Schemes, MAX_REDIRECTION_COUNT, REDIRECTION_STATUS_RANGE, STATUS_CODE_OK, CACHE_CONTROL, DEFAULT_CACHE_TIME
+from app.constants import FORWARD_SLASH, CONTENT_TYPE, CONTENT_LENGTH, LOCATION, Schemes, MAX_REDIRECTION_COUNT, REDIRECTION_STATUS_RANGE, STATUS_CODE_OK, CACHE_CONTROL, DEFAULT_CACHE_TIME, CONTENT_ENCODING, ACCEPT_ENCODING, TRANSFER_ENCODING, GZIP
 from app.schemes import BaseScheme
 from app.Cache import Cache
 
@@ -32,7 +33,7 @@ class HTTPScheme(BaseScheme):
       self.port = int(port)
 
   def get_request_headers(self):
-    headers = { "User-Agent": "memz-0.0", "Host": self.host, 'Content-type': 'utf-8'}
+    headers = { "User-Agent": "memz-0.0", "Host": self.host, 'Content-type': 'utf-8', ACCEPT_ENCODING: 'gzip'}
     header_string = ""
     for header in headers:
       header_string += f"{header}: {headers[header]}\r\n"
@@ -100,22 +101,17 @@ class HTTPScheme(BaseScheme):
     Logger.debug(request_data)
     self.get_socket().sendall(request_data)
 
-    response = self.get_socket().makefile("r", encoding="utf-8", newline="\r\n")
-    statusline = response.readline()
+    response = self.get_socket().makefile("rb")
+    statusline = response.readline().decode()
     version, status, explaination = statusline.split(" ", 2)
     status = int(status)
-
     response_headers = self.get_response_headers(response=response)
-    assert "transfer-encoding" not in response_headers
-    assert "content-encoding" not in response_headers
 
     if (REDIRECTION_STATUS_RANGE[0] <= status < REDIRECTION_STATUS_RANGE[1]) and self.allow_redirection_count():
       self.redirection(response_headers=response_headers)
     else:
-      content_length = response_headers.get(CONTENT_LENGTH)
-      content_length = int(content_length) if content_length != None else None
       self.body_encoding = self.get_body_encoding(response_headers.get(CONTENT_TYPE))
-      self.body = response.read(content_length)
+      self.body = self.get_body(response=response, response_headers=response_headers)
       if status == STATUS_CODE_OK: # Add check when supported request type more than GET: Allow only if request method is GET
         cache_control_header = response_headers.get(CACHE_CONTROL)
         self.cache_request(file_content=self.body, encoding_type=self.body_encoding, cache_header=cache_control_header)
@@ -123,7 +119,42 @@ class HTTPScheme(BaseScheme):
   def construct_url(self):
     return f"{Schemes[self.name].value}://{self.host}:{self.port}{self.path}"
 
-  
+  def get_body(self, response, response_headers):
+    transfer_encoding = response_headers.get(TRANSFER_ENCODING)
+    content_length = response_headers.get(CONTENT_LENGTH)
+    content_length = int(content_length) if content_length != None else None
+    if transfer_encoding and "chunked" in transfer_encoding:
+      body = self.get_chunked_body(response=response)
+    else:
+      body = response.read(content_length)
+    body = self.decompress_content(body=body, response_headers=response_headers)
+      
+    return body
+    
+  def decompress_content(self, body, response_headers, transfer=False):
+    content_encoding = response_headers.get(CONTENT_ENCODING)
+    transfer_encoding = response_headers.get(TRANSFER_ENCODING)
+    gzipped = (transfer_encoding and GZIP in transfer_encoding) if transfer else (content_encoding and GZIP in content_encoding)
+    return gzip.decompress(body) if gzipped else body
+
+  def get_chunked_body(self, response):
+    chunk_val = b''
+    while(True):
+      chunk_size = response.readline().decode(self.body_encoding if self.body_encoding else 'utf-8')
+      if chunk_size == "\r\n":
+        continue
+      chunk_size = int(chunk_size, 16)
+      if chunk_size == 0:
+        break
+      raw_chunk_value = response.read(chunk_size)
+      try:
+        chunk_val += raw_chunk_value
+      except Exception as e:
+        print(e)
+        Logger.error("Could not decompress chunk")
+    
+    return chunk_val
+
   def cache_request(self, file_content, encoding_type, cache_header):
     cache_restrictions = {}
     if cache_header:
@@ -156,7 +187,7 @@ class HTTPScheme(BaseScheme):
   def get_response_headers(self, response):
     response_headers = {}
     while(True):
-      header = response.readline()
+      header = response.readline().decode()
       if(header == "\r\n"): break
       header_name, header_value = header.split(":", 1)
       response_headers[header_name.casefold()] = header_value.strip()
