@@ -14,16 +14,19 @@ class Memex:
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
+        self.contentHeight = HEIGHT
 
     def __enter__(self):
         Cache.safe_init_folder()
         return Memex()
     
     def scrolldown(self, e):
+        if self.scroll > self.contentHeight + VSTEP: return
         self.scroll += SCROLL_STEP
         self.draw()
     
     def scrollup(self, e):
+        if self.scroll == 0: return
         self.scroll -= SCROLL_STEP
         self.draw()
 
@@ -89,6 +92,8 @@ class Memex:
             if cursor_x > WIDTH-HSTEP:
                 cursor_x = HSTEP
                 cursor_y += VSTEP
+
+        self.contentHeight = cursor_y # Set content height to last value of cursor Y
     
     def draw(self):
         self.canvas.delete("all")
