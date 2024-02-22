@@ -79,11 +79,16 @@ class Memex:
         self.layout_list = []
         cursor_x, cursor_y = HSTEP, VSTEP
         for c in content:
+            # Handle new line character
+            if c == '\n':
+                cursor_y += VSTEP
+                continue
+
             self.layout_list.append((cursor_x, cursor_y, c))
             cursor_x += HSTEP
             if cursor_x > WIDTH-HSTEP:
                 cursor_x = HSTEP
-                cursor_y += HSTEP
+                cursor_y += VSTEP
     
     def draw(self):
         self.canvas.delete("all")
