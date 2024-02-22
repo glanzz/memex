@@ -8,19 +8,35 @@ from app.Cache import Cache
 
 class Memex:
     def __init__(self):
+        self.width = WIDTH
+        self.height = HEIGHT
         self.window = tkinter.Tk()
-        self.canvas = tkinter.Canvas(self.window, width=WIDTH, height=HEIGHT)
-        self.canvas.pack()
+        self.canvas = tkinter.Canvas(self.window, width=self.width, height=self.height)
+        self.canvas.pack(fill=tkinter.BOTH, expand=1)
         self.scroll = 0
+        self.content = ""
+        # Mouse Events
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
         self.window.bind("<MouseWheel>", self.mouse_scroll)
+
+        # Resize Events
+        self.window.bind("<Configure>", self.resize)
+
+        # Initialize content height to default
         self.contentHeight = HEIGHT
 
     def __enter__(self):
         Cache.safe_init_folder()
         return Memex()
     
+    def resize(self, e):
+        if e.height > 1 and e.width > 1:
+            self.height = e.height
+            self.width = e.width
+            self.layout()
+
+
     def scrolldown(self, e, delta=None):
         scroll_delta = -(delta) if delta else  SCROLL_STEP
         if (self.scroll > self.contentHeight) : return
@@ -77,18 +93,18 @@ class Memex:
     def load(self, url=DEFAULT_URL):
         url = URL(url=url if url else DEFAULT_URL)
         url.scheme_request.request()
-        content = self.show(
+        self.content = self.show(
             url.scheme_request.body,
             encoding=url.scheme_request.body_encoding,
             view_mode=url.get_view_mode(),
         )
-        self.layout(content=content)
+        self.layout()
         self.draw()
     
-    def layout(self, content):
+    def layout(self):
         self.layout_list = []
         cursor_x, cursor_y = HSTEP, VSTEP
-        for c in content:
+        for c in self.content:
             # Handle new line character
             if c == '\n':
                 cursor_y += VSTEP
@@ -96,7 +112,7 @@ class Memex:
 
             self.layout_list.append((cursor_x, cursor_y, c))
             cursor_x += HSTEP
-            if cursor_x > WIDTH-HSTEP:
+            if cursor_x > self.width-HSTEP:
                 cursor_x = HSTEP
                 cursor_y += VSTEP
 
@@ -105,7 +121,7 @@ class Memex:
     def draw(self):
         self.canvas.delete("all")
         for x, y, c in self.layout_list:
-            if y > self.scroll + HEIGHT: continue
+            if y > self.scroll + self.height: continue
             if y + VSTEP < self.scroll: continue
             self.canvas.create_text(x, y - self.scroll, text=c)
 
