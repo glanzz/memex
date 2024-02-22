@@ -14,20 +14,27 @@ class Memex:
         self.scroll = 0
         self.window.bind("<Down>", self.scrolldown)
         self.window.bind("<Up>", self.scrollup)
+        self.window.bind("<MouseWheel>", self.mouse_scroll)
         self.contentHeight = HEIGHT
 
     def __enter__(self):
         Cache.safe_init_folder()
         return Memex()
     
-    def scrolldown(self, e):
-        if self.scroll > self.contentHeight + VSTEP: return
-        self.scroll += SCROLL_STEP
+    def scrolldown(self, e, delta=None):
+        scroll_delta = -(delta) if delta else  SCROLL_STEP
+        if (self.scroll > self.contentHeight) : return
+        self.scroll = self.contentHeight if (self.scroll + scroll_delta) > self.contentHeight else (self.scroll + scroll_delta)
         self.draw()
     
-    def scrollup(self, e):
-        if self.scroll == 0: return
-        self.scroll -= SCROLL_STEP
+    def mouse_scroll(self, e):
+        event_delta = e.delta
+        self.scrolldown(e, event_delta) if event_delta < 0 else self.scrollup(e, event_delta)
+    
+    def scrollup(self, e, delta=None):
+        scroll_delta = delta if delta else SCROLL_STEP
+        if self.scroll <= 0: return
+        self.scroll = 0 if self.scroll - scroll_delta <= 0 else (self.scroll - scroll_delta)
         self.draw()
 
     def show(self, body, encoding, view_mode=False):
