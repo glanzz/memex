@@ -34,7 +34,6 @@ class Memex:
             height=self.height,
             yscrollcommand=self.scrollbar.set,
         )
-
         self.scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
         self.canvas.pack(side=tkinter.LEFT, fill=tkinter.BOTH, expand=1)
 
@@ -161,6 +160,7 @@ class Memex:
         )
         self.layout()
         self.draw()
+        tkinter.mainloop()
 
     def layout(self):
         self.layout_list = []

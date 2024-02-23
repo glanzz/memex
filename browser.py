@@ -6,4 +6,3 @@ if __name__ == "__main__":
 
     with Memex() as memex:
         memex.load(sys.argv[1] if len(sys.argv) > 1 else None)
-        tkinter.mainloop()
