@@ -11,8 +11,12 @@ class Memex:
         self.width = WIDTH
         self.height = HEIGHT
         self.window = tkinter.Tk()
-        self.canvas = tkinter.Canvas(self.window, width=self.width, height=self.height)
-        self.canvas.pack(fill=tkinter.BOTH, expand=1)
+        self.scrollbar = tkinter.Scrollbar(self.window, orient=tkinter.VERTICAL, background="#000000", elementborderwidth=2, command=self.handle_slide, activerelief=tkinter.SUNKEN, troughcolor='red')
+        self.canvas = tkinter.Canvas(self.window, width=self.width, height=self.height, yscrollcommand=self.scrollbar.set)
+
+        self.scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
+        self.canvas.pack(side=tkinter.LEFT, fill=tkinter.BOTH, expand=1)
+
         self.scroll = 0
         self.content = ""
         # Mouse Events
@@ -35,12 +39,42 @@ class Memex:
             self.height = e.height
             self.width = e.width
             self.layout()
+            self.draw()
 
+    def handle_slide(self, e, delta, unit=None):
+        if self.height > 1 and self.width > 1:
+            if e == tkinter.MOVETO:
+                self.set_scroll(float(delta) * self.contentHeight)
+                self.draw()
+            elif e == tkinter.SCROLL:
+                if unit == tkinter.PAGES:
+                    self.set_scroll(self.scroll + (self.height * float(delta)))
+                    self.draw()
+
+    def set_slider(self):
+        start_height = self.scroll/self.contentHeight
+        current_height = self.height/self.contentHeight
+        self.scrollbar.set(start_height, start_height + current_height)
+
+    def get_scroll_max(self):
+        return self.contentHeight - self.height
+    
+    def get_scroll_min(self):
+        return 0
+
+    def set_scroll(self, scroll):
+        if scroll < self.get_scroll_min():
+            self.scroll = self.get_scroll_min()
+        elif scroll >= self.get_scroll_max():
+            self.scroll = self.get_scroll_max()
+        else:
+            self.scroll = scroll
+        self.set_slider()
 
     def scrolldown(self, e, delta=None):
         scroll_delta = -(delta) if delta else  SCROLL_STEP
-        if (self.scroll > self.contentHeight) : return
-        self.scroll = self.contentHeight if (self.scroll + scroll_delta) > self.contentHeight else (self.scroll + scroll_delta)
+        if (self.scroll > self.get_scroll_max()) : return
+        self.set_scroll(self.scroll + scroll_delta)
         self.draw()
     
     def mouse_scroll(self, e):
@@ -49,8 +83,8 @@ class Memex:
     
     def scrollup(self, e, delta=None):
         scroll_delta = delta if delta else SCROLL_STEP
-        if self.scroll <= 0: return
-        self.scroll = 0 if self.scroll - scroll_delta <= 0 else (self.scroll - scroll_delta)
+        if self.scroll <= self.get_scroll_min(): return
+        self.set_scroll(self.scroll - scroll_delta)
         self.draw()
 
     def show(self, body, encoding, view_mode=False):
