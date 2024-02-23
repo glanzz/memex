@@ -1,7 +1,15 @@
 import tkinter
 from app.logger import Logger
 from app.schemes import HTTPScheme
-from app.constants import ENTITY_SYMBOL_MAPPING, DEFAULT_URL, WIDTH, HEIGHT, HSTEP, VSTEP, SCROLL_STEP
+from app.constants import (
+    ENTITY_SYMBOL_MAPPING,
+    DEFAULT_URL,
+    WIDTH,
+    HEIGHT,
+    HSTEP,
+    VSTEP,
+    SCROLL_STEP,
+)
 from app.URL import URL
 from app.Cache import Cache
 
@@ -11,8 +19,21 @@ class Memex:
         self.width = WIDTH
         self.height = HEIGHT
         self.window = tkinter.Tk()
-        self.scrollbar = tkinter.Scrollbar(self.window, orient=tkinter.VERTICAL, background="#000000", elementborderwidth=2, command=self.handle_slide, activerelief=tkinter.SUNKEN, troughcolor='red')
-        self.canvas = tkinter.Canvas(self.window, width=self.width, height=self.height, yscrollcommand=self.scrollbar.set)
+        self.scrollbar = tkinter.Scrollbar(
+            self.window,
+            orient=tkinter.VERTICAL,
+            background="#000000",
+            elementborderwidth=2,
+            command=self.handle_slide,
+            activerelief=tkinter.SUNKEN,
+            troughcolor="red",
+        )
+        self.canvas = tkinter.Canvas(
+            self.window,
+            width=self.width,
+            height=self.height,
+            yscrollcommand=self.scrollbar.set,
+        )
 
         self.scrollbar.pack(side=tkinter.RIGHT, fill=tkinter.Y)
         self.canvas.pack(side=tkinter.LEFT, fill=tkinter.BOTH, expand=1)
@@ -33,7 +54,7 @@ class Memex:
     def __enter__(self):
         Cache.safe_init_folder()
         return Memex()
-    
+
     def resize(self, e):
         if e.height > 1 and e.width > 1:
             self.height = e.height
@@ -52,13 +73,13 @@ class Memex:
                     self.draw()
 
     def set_slider(self):
-        start_height = self.scroll/self.contentHeight
-        current_height = self.height/self.contentHeight
+        start_height = self.scroll / self.contentHeight
+        current_height = self.height / self.contentHeight
         self.scrollbar.set(start_height, start_height + current_height)
 
     def get_scroll_max(self):
         return self.contentHeight - self.height
-    
+
     def get_scroll_min(self):
         return 0
 
@@ -72,18 +93,24 @@ class Memex:
         self.set_slider()
 
     def scrolldown(self, e, delta=None):
-        scroll_delta = -(delta) if delta else  SCROLL_STEP
-        if (self.scroll > self.get_scroll_max()) : return
+        scroll_delta = -(delta) if delta else SCROLL_STEP
+        if self.scroll > self.get_scroll_max():
+            return
         self.set_scroll(self.scroll + scroll_delta)
         self.draw()
-    
+
     def mouse_scroll(self, e):
         event_delta = e.delta
-        self.scrolldown(e, event_delta) if event_delta < 0 else self.scrollup(e, event_delta)
-    
+        (
+            self.scrolldown(e, event_delta)
+            if event_delta < 0
+            else self.scrollup(e, event_delta)
+        )
+
     def scrollup(self, e, delta=None):
         scroll_delta = delta if delta else SCROLL_STEP
-        if self.scroll <= self.get_scroll_min(): return
+        if self.scroll <= self.get_scroll_min():
+            return
         self.set_scroll(self.scroll - scroll_delta)
         self.draw()
 
@@ -99,7 +126,7 @@ class Memex:
                 continue
 
             if view_mode:
-                text += show_data[i] #print(show_data[i], end="")
+                text += show_data[i]  # print(show_data[i], end="")
                 continue
 
             if show_data[i] == "<":
@@ -134,29 +161,31 @@ class Memex:
         )
         self.layout()
         self.draw()
-    
+
     def layout(self):
         self.layout_list = []
         cursor_x, cursor_y = HSTEP, VSTEP
         for c in self.content:
             # Handle new line character
-            if c == '\n':
+            if c == "\n":
                 cursor_y += VSTEP
                 continue
 
             self.layout_list.append((cursor_x, cursor_y, c))
             cursor_x += HSTEP
-            if cursor_x > self.width-HSTEP:
+            if cursor_x > self.width - HSTEP:
                 cursor_x = HSTEP
                 cursor_y += VSTEP
 
-        self.contentHeight = cursor_y # Set content height to last value of cursor Y
-    
+        self.contentHeight = cursor_y  # Set content height to last value of cursor Y
+
     def draw(self):
         self.canvas.delete("all")
         for x, y, c in self.layout_list:
-            if y > self.scroll + self.height: continue
-            if y + VSTEP < self.scroll: continue
+            if y > self.scroll + self.height:
+                continue
+            if y + VSTEP < self.scroll:
+                continue
             self.canvas.create_text(x, y - self.scroll, text=c)
 
     def __exit__(self, *args):
