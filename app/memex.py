@@ -6,12 +6,12 @@ from app.constants import (
     DEFAULT_URL,
     WIDTH,
     HEIGHT,
-    HSTEP,
     VSTEP,
     SCROLL_STEP,
 )
 from app.URL import URL
 from app.Cache import Cache
+from app.DOM import Tag, Text, Layout
 
 
 class Memex:
@@ -48,7 +48,7 @@ class Memex:
         self.window.bind("<Configure>", self.resize)
 
         # Initialize content height to default
-        self.contentHeight = HEIGHT
+        self.layout = Layout([], self.width, self.height)
 
     def __enter__(self):
         Cache.safe_init_folder()
@@ -58,13 +58,13 @@ class Memex:
         if e.height > 1 and e.width > 1:
             self.height = e.height
             self.width = e.width
-            self.layout()
+            self.layout = Layout(self.content, self.width, self.height)
             self.draw()
 
     def handle_slide(self, e, delta, unit=None):
         if self.height > 1 and self.width > 1:
             if e == tkinter.MOVETO:
-                self.set_scroll(float(delta) * self.contentHeight)
+                self.set_scroll(float(delta) * self.layout.content_height)
                 self.draw()
             elif e == tkinter.SCROLL:
                 if unit == tkinter.PAGES:
@@ -72,12 +72,12 @@ class Memex:
                     self.draw()
 
     def set_slider(self):
-        start_height = self.scroll / self.contentHeight
-        current_height = self.height / self.contentHeight
+        start_height = self.scroll / self.layout.content_height
+        current_height = self.height / self.layout.content_height
         self.scrollbar.set(start_height, start_height + current_height)
 
     def get_scroll_max(self):
-        return self.contentHeight - self.height
+        return self.layout.content_height - self.height
 
     def get_scroll_min(self):
         return 0
@@ -114,7 +114,11 @@ class Memex:
         self.draw()
 
     def show(self, body, encoding, view_mode=False):
-        text = ""
+        '''
+        view_mode: Indicates that whole content is a text including tags
+        '''
+        tokens = []
+        buffer = ""
         show_data = body.decode(encoding if encoding else "utf-8")
         in_tag = False
 
@@ -125,30 +129,40 @@ class Memex:
                 continue
 
             if view_mode:
-                text += show_data[i]  # print(show_data[i], end="")
+                buffer += show_data[i]
                 continue
 
             if show_data[i] == "<":
                 in_tag = True
+                if buffer: tokens.append(Text(buffer))
+                buffer = ""
+
             elif show_data[i] == ">":
                 in_tag = False
+                tokens.append(Tag(buffer))
+                buffer = ""
+
             elif show_data[i] == "&":
                 remaining_string = show_data[i + 1 :]
-                if not remaining_string:
-                    text += show_data[i]
+                if not remaining_string: # Whole content ends with &
+                    buffer += show_data[i]
                     break
                 token, remaining_string = remaining_string.split(";", 1)
                 token_value = ENTITY_SYMBOL_MAPPING.get(token)
                 if token_value:
-                    text += token_value
-                    if remaining_string == "":
+                    buffer += token_value
+                    if remaining_string == "": # There is no content left after token
                         break
-                    skip_till = show_data.find(remaining_string)
+                    skip_till = show_data.find(remaining_string) # Skip till the token code ends as its meaning is processed
                 else:
-                    text += show_data[i]
-            elif not in_tag:
-                text += show_data[i]
-        return text
+                    buffer += show_data[i]
+            else:
+                buffer += show_data[i]
+        
+        if not in_tag and buffer:
+            tokens.append(Text(buffer))
+            
+        return tokens
 
     def load(self, url=DEFAULT_URL):
         url = URL(url=url if url else DEFAULT_URL)
@@ -158,35 +172,18 @@ class Memex:
             encoding=url.scheme_request.body_encoding,
             view_mode=url.get_view_mode(),
         )
-        self.layout()
+        self.layout = Layout(self.content, self.width, self.height)
         self.draw()
         tkinter.mainloop()
 
-    def layout(self):
-        self.layout_list = []
-        cursor_x, cursor_y = HSTEP, VSTEP
-        for c in self.content:
-            # Handle new line character
-            if c == "\n":
-                cursor_y += VSTEP
-                continue
-
-            self.layout_list.append((cursor_x, cursor_y, c))
-            cursor_x += HSTEP
-            if cursor_x > self.width - HSTEP:
-                cursor_x = HSTEP
-                cursor_y += VSTEP
-
-        self.contentHeight = cursor_y  # Set content height to last value of cursor Y
-
     def draw(self):
         self.canvas.delete("all")
-        for x, y, c in self.layout_list:
+        for x, y, c, font in self.layout.display_list:
             if y > self.scroll + self.height:
                 continue
             if y + VSTEP < self.scroll:
                 continue
-            self.canvas.create_text(x, y - self.scroll, text=c)
+            self.canvas.create_text(x, y - self.scroll, text=c, font=font, anchor=tkinter.NW)
 
     def __exit__(self, *args):
         Logger.message("Closing all sockets...")
