@@ -16,5 +16,10 @@ class FontSize(Enum):
     BIG = 16
     SMALL = 12
 
+class FontScript(Enum):
+  DEFAULT = 0
+  SUPER = 1
+  SUB = 2
+
 
 DEFAULT_LINE_HEIGHT = 1.25

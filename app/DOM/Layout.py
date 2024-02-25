@@ -7,6 +7,7 @@ from app.constants import (
     FontWeight,
     DEFAULT_LINE_HEIGHT,
     FontSize,
+    FontScript,
 )
 from app.DOM import Text
 
@@ -40,6 +41,7 @@ class Layout:
         self.weight = FontWeight.NORMAL.value
         self.style = FontStyle.ROMAN.value
         self.size = FontSize.DEFAULT.value
+        self.script = FontScript.DEFAULT.name
 
         self.line = []
 
@@ -62,21 +64,30 @@ class Layout:
         word_width = font.measure(word)
         if (self.cursor_x + word_width) > (self.width - HSTEP):
             self.flush()
-        self.line.append((self.cursor_x, word, font))
+        self.line.append((self.cursor_x, word, font, self.script))
         self.cursor_x += word_width + font.measure(" ")
 
     def flush(self):
         if not self.line:
             return
-        max_ascent = max([font.metrics("ascent") for x, word, font in self.line])
+        max_ascent = max([font.metrics("ascent") for x, word, font, super_script in self.line])
+        max_descent = max([font.metrics("descent") for x, word, font, super_script in self.line])
+
         baseline = self.cursor_y + (DEFAULT_LINE_HEIGHT * max_ascent)
-        for x, word, font in self.line:
-            y = baseline - font.metrics("ascent")
-            self.display_list.append((x, y, word, font))
-        max_descent = max([font.metrics("descent") for x, word, font in self.line])
+        for x, word, font, script in self.line:
+            self.display_list.append((x, self.get_y(baseline, max_ascent, max_descent, font, script), word, font))
+
         self.cursor_y = baseline + (DEFAULT_LINE_HEIGHT * max_descent)
         self.cursor_x = HSTEP
         self.line = []
+    
+    def get_y(self, baseline, max_ascent, max_descent, font, script):
+      y = baseline - font.metrics("ascent")
+      if script == FontScript.SUPER.name:
+        y = baseline - max_ascent
+      elif script == FontScript.SUB.name:
+        y = baseline + max_descent
+      return y
 
     def token(self, token):
         if isinstance(token, Text):
@@ -103,3 +114,15 @@ class Layout:
         elif token.tag == "/p":
             self.flush()
             self.cursor_y += VSTEP
+        elif token.tag == "sup":
+            self.script = FontScript.SUPER.name
+            self.size = 8
+        elif token.tag == "/sup":
+            self.script = FontScript.DEFAULT.name
+            self.size = FontSize.DEFAULT.value
+        elif token.tag == "sub":
+            self.script = FontScript.SUB.name
+            self.size = 8
+        elif token.tag == "/sub":
+            self.script = FontScript.DEFAULT.name
+            self.size = FontSize.DEFAULT.value
