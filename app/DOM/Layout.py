@@ -44,6 +44,7 @@ class Layout:
         self.style = FontStyle.ROMAN.value
         self.size = FontSize.DEFAULT.value
         self.script = FontScript.DEFAULT.name
+        self.caps = False
 
         self.line = []
 
@@ -62,6 +63,8 @@ class Layout:
         if word == "" or (word == "\n"):
             self.flush()
             return
+
+        if self.caps: word = word.upper()
 
         word_width = font.measure(word)
 
@@ -83,7 +86,7 @@ class Layout:
 
     def __get_accomodable_text(self, text):
       '''Text shown with - after it as it breaks'''
-      return f"{text}{SOFT_HYPEN}"
+      return f"{text}-"
 
     def get_slice_index_for_accomodation(self, font, text, width):
       if SOFT_HYPEN in text:
@@ -154,3 +157,11 @@ class Layout:
         elif token.tag == "/sub":
             self.script = FontScript.DEFAULT.name
             self.size = self.size * 2
+        elif token.tag == "abbr":
+            self.size = int(self.size / 1.5)
+            self.caps = True
+            self.weight = FontWeight.BOLD.value
+        elif token.tag == "/abbr":
+            self.size = int(self.size * 1.5)
+            self.caps = False
+            self.weight = FontWeight.NORMAL.value
