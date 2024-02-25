@@ -1,3 +1,3 @@
 class Text:
-  def __init__(self, text) -> None:
-    self.text = text
+    def __init__(self, text) -> None:
+        self.text = text
