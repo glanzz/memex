@@ -10,6 +10,10 @@ class FontStyle(Enum):
     ITALIC = "italic"
     ROMAN = "roman"
 
+class FontFamily(Enum):
+    COURIER_NEW = "Courier New"
+    DEFAULT = "Helvetica"
+
 
 class FontSize(Enum):
     DEFAULT = 14

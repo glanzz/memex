@@ -9,7 +9,8 @@ from app.constants import (
     FontSize,
     FontScript,
     TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK,
-    SOFT_HYPEN
+    SOFT_HYPEN,
+    FontFamily
 )
 from app.DOM import Text
 
@@ -18,16 +19,16 @@ class FontCache:
     def __init__(self):
         self.cache = {}
 
-    def get_font(self, weight, style, size):
-        if not self.cache.get((weight, style, size)):
+    def get_font(self, weight, style, size, family):
+        if not self.cache.get((weight, style, size, family)):
             font = TKFont.Font(
-                family="Helvetica",
+                family=family,
                 size=size,
                 weight=weight,
                 slant=style,
             )
-            self.cache[(weight, style, size)] = (font, Label(font=font))
-        return self.cache[(weight, style, size)][0]
+            self.cache[(weight, style, size, family)] = (font, Label(font=font))
+        return self.cache[(weight, style, size, family)][0]
 
 
 class Layout:
@@ -45,6 +46,8 @@ class Layout:
         self.size = FontSize.DEFAULT.value
         self.script = FontScript.DEFAULT.name
         self.caps = False
+        self.pre = False
+        self.family = FontFamily.DEFAULT.value
 
         self.line = []
 
@@ -58,7 +61,7 @@ class Layout:
 
     def add_word(self, word):
         # Handle new line character
-        font = self.font_cache.get_font(self.weight, self.style, self.size)
+        font = self.font_cache.get_font(self.weight, self.style, self.size, self.family)
 
         if word == "" or (word == "\n"):
             self.flush()
@@ -68,7 +71,7 @@ class Layout:
 
         word_width = font.measure(word)
 
-        if (self.cursor_x + word_width) > (self.width - HSTEP):
+        if (self.cursor_x + word_width) > (self.width - HSTEP) and not self.pre:
           remaining_width = self.width - self.cursor_x - HSTEP
           if remaining_width > TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK * self.width:
             slice_index = self.get_slice_index_for_accomodation(font, word, remaining_width)
@@ -122,8 +125,12 @@ class Layout:
 
     def token(self, token):
         if isinstance(token, Text):
-            for word in token.text.split():
-                self.add_word(word=word)
+            if self.pre:
+              '''If pre enabled consider whole text without any breaks as it is'''
+              self.add_word(word=token.text)
+            else:
+              for word in token.text.split():
+                  self.add_word(word=word)
         elif token.tag == "i":
             self.style = FontStyle.ITALIC.value
         elif token.tag == "/i":
@@ -165,3 +172,11 @@ class Layout:
             self.size = int(self.size * 1.5)
             self.caps = False
             self.weight = FontWeight.NORMAL.value
+        elif token.tag == "pre":
+            self.pre = True
+            self.family = FontFamily.COURIER_NEW.value
+            self.flush()
+        elif token.tag == "/pre":
+            self.pre = False
+            self.family = FontFamily.DEFAULT.value
+
