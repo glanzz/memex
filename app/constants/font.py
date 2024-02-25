@@ -23,3 +23,7 @@ class FontScript(Enum):
 
 
 DEFAULT_LINE_HEIGHT = 1.25
+
+TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK = 0.05 # 5% of total width
+
+SOFT_HYPEN = "\N{soft hyphen}"
