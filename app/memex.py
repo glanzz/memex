@@ -20,7 +20,7 @@ class Memex:
         self.height = HEIGHT
         self.window = tkinter.Tk()
         self.scrollbar = tkinter.Scrollbar(
-            self.window,
+            master=self.window,
             orient=tkinter.VERTICAL,
             background="#000000",
             elementborderwidth=2,
@@ -29,7 +29,7 @@ class Memex:
             troughcolor="red",
         )
         self.canvas = tkinter.Canvas(
-            self.window,
+            master=self.window,
             width=self.width,
             height=self.height,
             yscrollcommand=self.scrollbar.set,
@@ -52,7 +52,7 @@ class Memex:
 
     def __enter__(self):
         Cache.safe_init_folder()
-        return Memex()
+        return self
 
     def resize(self, e):
         if e.height > 1 and e.width > 1:
@@ -114,9 +114,9 @@ class Memex:
         self.draw()
 
     def show(self, body, encoding, view_mode=False):
-        '''
+        """
         view_mode: Indicates that whole content is a text including tags
-        '''
+        """
         tokens = []
         buffer = ""
         show_data = body.decode(encoding if encoding else "utf-8")
@@ -134,7 +134,8 @@ class Memex:
 
             if show_data[i] == "<":
                 in_tag = True
-                if buffer: tokens.append(Text(buffer))
+                if buffer:
+                    tokens.append(Text(buffer))
                 buffer = ""
 
             elif show_data[i] == ">":
@@ -144,24 +145,33 @@ class Memex:
 
             elif show_data[i] == "&":
                 remaining_string = show_data[i + 1 :]
-                if not remaining_string: # Whole content ends with &
+                if not remaining_string:  # Whole content ends with &
                     buffer += show_data[i]
                     break
-                token, remaining_string = remaining_string.split(";", 1)
+
+                splitlist = remaining_string.split(";", 1)
+                token = splitlist[0]
+                if (
+                    len(splitlist) > 1
+                ):  # Check if there is anything remaining the token (Especially in cases where there is no ; after &)
+                    remaining_string = splitlist[1]
+
                 token_value = ENTITY_SYMBOL_MAPPING.get(token)
                 if token_value:
                     buffer += token_value
-                    if remaining_string == "": # There is no content left after token
+                    if remaining_string == "":  # There is no content left after token
                         break
-                    skip_till = show_data.find(remaining_string) # Skip till the token code ends as its meaning is processed
+                    skip_till = show_data.find(
+                        remaining_string
+                    )  # Skip till the token code ends as its meaning is processed
                 else:
                     buffer += show_data[i]
             else:
                 buffer += show_data[i]
-        
+
         if not in_tag and buffer:
             tokens.append(Text(buffer))
-            
+
         return tokens
 
     def load(self, url=DEFAULT_URL):
@@ -174,7 +184,7 @@ class Memex:
         )
         self.layout = Layout(self.content, self.width, self.height)
         self.draw()
-        tkinter.mainloop()
+        self.window.mainloop()
 
     def draw(self):
         self.canvas.delete("all")
@@ -183,7 +193,9 @@ class Memex:
                 continue
             if y + VSTEP < self.scroll:
                 continue
-            self.canvas.create_text(x, y - self.scroll, text=c, font=font, anchor=tkinter.NW)
+            self.canvas.create_text(
+                x, y - self.scroll, text=c, font=font, anchor=tkinter.NW
+            )
 
     def __exit__(self, *args):
         Logger.message("Closing all sockets...")
