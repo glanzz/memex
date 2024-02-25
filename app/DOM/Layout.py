@@ -116,13 +116,13 @@ class Layout:
             self.cursor_y += VSTEP
         elif token.tag == "sup":
             self.script = FontScript.SUPER.name
-            self.size = 8
+            self.size = self.size // 2
         elif token.tag == "/sup":
             self.script = FontScript.DEFAULT.name
-            self.size = FontSize.DEFAULT.value
+            self.size = self.size * 2
         elif token.tag == "sub":
             self.script = FontScript.SUB.name
-            self.size = 8
+            self.size = self.size // 2
         elif token.tag == "/sub":
             self.script = FontScript.DEFAULT.name
-            self.size = FontSize.DEFAULT.value
+            self.size = self.size * 2
