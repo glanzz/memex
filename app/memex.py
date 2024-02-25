@@ -119,7 +119,7 @@ class Memex:
         """
         tokens = []
         buffer = ""
-        show_data = body.decode(encoding if encoding else "utf-8")
+        show_data = body.decode(encoding if encoding else "utf-8") if encoding != None else body
         in_tag = False
 
         skip_till = None
