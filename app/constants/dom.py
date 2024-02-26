@@ -1,0 +1,2 @@
+COMMENT_START = "<!--"
+COMMENT_END = "-->"

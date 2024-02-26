@@ -12,7 +12,7 @@ from app.constants import (
     SOFT_HYPEN,
     FontFamily,
 )
-from app.DOM import Text
+from app.DOM import Text, Comment
 
 
 class FontCache:
@@ -201,6 +201,9 @@ class Layout:
         if isinstance(tree, Text):
             for word in tree.text.split():
                 self.add_word(word)
+        elif isinstance(tree, Comment):
+            # Skip comment for now but can be required in future
+            return
         else:
             self.open_tag(tree.tag)
             for child in tree.children:

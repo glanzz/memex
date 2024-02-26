@@ -1,5 +1,5 @@
-from app.constants import ENTITY_SYMBOL_MAPPING
-from app.DOM import Text, Element
+from app.constants import ENTITY_SYMBOL_MAPPING, COMMENT_START, COMMENT_END
+from app.DOM import Text, Element, Comment
 
 
 class HTMLParser:
@@ -45,6 +45,7 @@ class HTMLParser:
             else self.body
         )
         in_tag = False
+        in_comment = False
 
         skip_till = None
         data_length = len(show_data)
@@ -60,7 +61,21 @@ class HTMLParser:
                 in_tag = True
                 if buffer:
                     self.add_text(buffer)
+                if (
+                    data_length >= i + 3
+                    and show_data[i + 1 : i + 4] == COMMENT_START[1:]
+                ):
+                    in_comment = True
+                    skip_till = i + 3
                 buffer = ""
+
+            elif in_comment and show_data[i] == COMMENT_END[0]:
+                if data_length >= i + 2 and show_data[i + 1 : i + 3] == COMMENT_END[1:]:
+                    if buffer:
+                        self.add_comment(buffer)
+                    in_comment = False
+                    skip_till = i + 2
+                    buffer = ""
 
             elif show_data[i] == ">":
                 in_tag = False
@@ -105,6 +120,14 @@ class HTMLParser:
         self.implicit_tags(None)
         parent = self.unfinished[-1]
         node = Text(text, parent)
+        parent.children.append(node)
+
+    def add_comment(self, comment):
+        if comment.isspace():
+            return  # Ignores whitespace texts
+        self.implicit_tags(None)
+        parent = self.unfinished[-1]
+        node = Comment(comment=comment, parent=parent)
         parent.children.append(node)
 
     def close_tag(self):
