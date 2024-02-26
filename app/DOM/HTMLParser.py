@@ -51,6 +51,7 @@ class HTMLParser:
             else self.body
         )
         in_tag = False
+        tag_quote = "" # Determines if the currently under quoted attribute of the tag
         in_comment = False
 
         skip_till = None
@@ -75,6 +76,12 @@ class HTMLParser:
                     skip_till = i + 8
                 else:
                     buffer += show_data[i]
+
+            elif self.type == ParseContent.TAG_QUOTE.name:
+              if show_data[i] == tag_quote:
+                tag_quote = ""
+                self.type = ParseContent.TEXT.name
+              buffer += show_data[i]
 
             else:
                 if show_data[i] == "<":
@@ -131,7 +138,13 @@ class HTMLParser:
                         )  # Skip till the token code ends as its meaning is processed
                     else:
                         buffer += show_data[i]
+
                 else:
+                    if in_tag and show_data[i] in ["'", '"']:
+                      '''If in_tag and quote is found then consider remaining as quote and store current quote'''
+                      self.type = ParseContent.TAG_QUOTE.name
+                      tag_quote = show_data[i]
+
                     buffer += str(show_data[i])
 
         if not in_tag and buffer:
