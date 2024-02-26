@@ -32,7 +32,7 @@ class FontCache:
 
 
 class Layout:
-    def __init__(self, tokens, width, height) -> None:
+    def __init__(self, nodes, width, height) -> None:
         self.display_list = []
         self.font_cache = FontCache()
 
@@ -51,11 +51,11 @@ class Layout:
 
         self.line = []
 
-        self.generate_layout(tokens)
+        self.generate_layout(nodes)
 
-    def generate_layout(self, tokens):
-        for token in tokens:
-            self.token(token=token)
+    def generate_layout(self, nodes):
+        if nodes:
+            self.recurse(tree=nodes)
         self.flush()
         self.content_height = self.cursor_y
 
@@ -122,61 +122,71 @@ class Layout:
       elif script == FontScript.SUB.name:
         y = baseline + max_descent
       return y
-
-    def token(self, token):
-        if isinstance(token, Text):
-            if self.pre:
-              '''If pre enabled consider whole text without any breaks as it is'''
-              self.add_word(word=token.text)
-            else:
-              for word in token.text.split():
-                  self.add_word(word=word)
-        elif token.tag == "i":
+    
+    def open_tag(self, tag):
+        if tag == "i":
             self.style = FontStyle.ITALIC.value
-        elif token.tag == "/i":
-            self.style = FontStyle.ROMAN.value
-        elif token.tag == "b":
+        elif tag == "b":
             self.weight = FontWeight.BOLD.value
-        elif token.tag == "/b":
-            self.weight = FontWeight.NORMAL.value
-        elif token.tag == "big":
+        
+        elif tag == "big":
             self.size = FontSize.BIG.value
-        elif token.tag == "/big":
-            self.size = FontSize.DEFAULT.value
-        elif token.tag == "small":
+        
+        elif tag == "small":
             self.size = FontSize.SMALL.value
-        elif token.tag == "/small":
-            self.size = FontSize.DEFAULT.value
-        elif token.tag == "br/" or token.tag == "br":
+        
+        elif tag == "br/" or tag == "br":
             self.flush()
-        elif token.tag == "/p":
-            self.flush()
-            self.cursor_y += VSTEP
-        elif token.tag == "sup":
+        elif tag == "sup":
             self.script = FontScript.SUPER.name
             self.size = self.size // 2
-        elif token.tag == "/sup":
-            self.script = FontScript.DEFAULT.name
-            self.size = self.size * 2
-        elif token.tag == "sub":
+        
+        elif tag == "sub":
             self.script = FontScript.SUB.name
             self.size = self.size // 2
-        elif token.tag == "/sub":
-            self.script = FontScript.DEFAULT.name
-            self.size = self.size * 2
-        elif token.tag == "abbr":
+        
+        elif tag == "abbr":
             self.size = int(self.size / 1.5)
             self.caps = True
             self.weight = FontWeight.BOLD.value
-        elif token.tag == "/abbr":
-            self.size = int(self.size * 1.5)
-            self.caps = False
-            self.weight = FontWeight.NORMAL.value
-        elif token.tag == "pre":
+       
+        elif tag == "pre":
             self.pre = True
             self.family = FontFamily.COURIER_NEW.value
             self.flush()
-        elif token.tag == "/pre":
+    
+    def close_tag(self, tag):
+        if tag == "i":
+            self.style = FontStyle.ROMAN.value
+        elif tag == "b":
+            self.weight = FontWeight.NORMAL.value
+        elif tag == "big":
+            self.size = FontSize.DEFAULT.value
+        elif tag == "small":
+            self.size = FontSize.DEFAULT.value
+        elif tag == "p":
+            self.flush()
+            self.cursor_y += VSTEP
+        elif tag == "sup":
+            self.script = FontScript.DEFAULT.name
+            self.size = self.size * 2
+        elif tag == "sub":
+            self.script = FontScript.DEFAULT.name
+            self.size = self.size * 2
+        elif tag == "abbr":
+            self.size = int(self.size * 1.5)
+            self.caps = False
+            self.weight = FontWeight.NORMAL.value
+        elif tag == "pre":
             self.pre = False
             self.family = FontFamily.DEFAULT.value
 
+    def recurse(self, tree):
+        if isinstance(tree, Text):
+            for word in tree.text.split():
+                self.add_word(word)
+        else:
+            self.open_tag(tree.tag)
+            for child in tree.children:
+                self.recurse(child)
+            self.close_tag(tree.tag)
