@@ -72,6 +72,7 @@ class HTMLParser:
                 ):
                     if buffer:
                         self.add_text(buffer)
+                    buffer = ""
                     self.add_tag("/script")
                     skip_till = i + 8
                 else:
