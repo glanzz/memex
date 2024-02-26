@@ -1,4 +1,9 @@
-from app.constants import ENTITY_SYMBOL_MAPPING, COMMENT_START, COMMENT_END
+from app.constants import (
+    ENTITY_SYMBOL_MAPPING,
+    COMMENT_START,
+    COMMENT_END,
+    ParseContent,
+)
 from app.DOM import Text, Element, Comment
 
 
@@ -36,6 +41,7 @@ class HTMLParser:
         self.encoding = encoding
         self.view_mode = view_mode
         self.unfinished = []
+        self.type = ParseContent.TEXT.name
 
     def parse(self):
         buffer = ""
@@ -57,57 +63,76 @@ class HTMLParser:
                 buffer += show_data[i]
                 continue
 
-            if show_data[i] == "<":
-                in_tag = True
-                if buffer:
-                    self.add_text(buffer)
+            if self.type == ParseContent.SCRIPT.name:
                 if (
-                    data_length >= i + 3
-                    and show_data[i + 1 : i + 4] == COMMENT_START[1:]
+                    show_data[i] == "<"
+                    and data_length >= i + 8
+                    and show_data[i + 1 : i + 9] == "/script>"
                 ):
-                    in_comment = True
-                    skip_till = i + 3
-                buffer = ""
-
-            elif in_comment and show_data[i] == COMMENT_END[0]:
-                if data_length >= i + 2 and show_data[i + 1 : i + 3] == COMMENT_END[1:]:
                     if buffer:
-                        self.add_comment(buffer)
-                    in_comment = False
-                    skip_till = i + 2
-                    buffer = ""
-
-            elif show_data[i] == ">":
-                in_tag = False
-                if buffer:
-                    self.add_tag(buffer)
-                buffer = ""
-
-            elif show_data[i] == "&":
-                remaining_string = show_data[i + 1 :]
-                if not remaining_string:  # Whole content ends with &
-                    buffer += show_data[i]
-                    break
-
-                splitlist = remaining_string.split(";", 1)
-                token = splitlist[0]
-                if (
-                    len(splitlist) > 1
-                ):  # Check if there is anything remaining the token (Especially in cases where there is no ; after &)
-                    remaining_string = splitlist[1]
-
-                token_value = ENTITY_SYMBOL_MAPPING.get(token)
-                if token_value:
-                    buffer += token_value
-                    if remaining_string == "":  # There is no content left after token
-                        break
-                    skip_till = show_data.find(
-                        remaining_string
-                    )  # Skip till the token code ends as its meaning is processed
+                        self.add_text(buffer)
+                    self.add_tag("/script")
+                    skip_till = i + 8
                 else:
                     buffer += show_data[i]
+
             else:
-                buffer += str(show_data[i])
+                if show_data[i] == "<":
+                    in_tag = True
+                    if buffer:
+                        self.add_text(buffer)
+                    if (
+                        data_length >= i + 3
+                        and show_data[i + 1 : i + 4] == COMMENT_START[1:]
+                    ):
+                        in_comment = True
+                        skip_till = i + 3
+                    buffer = ""
+
+                elif in_comment and show_data[i] == COMMENT_END[0]:
+                    if (
+                        data_length >= i + 2
+                        and show_data[i + 1 : i + 3] == COMMENT_END[1:]
+                    ):
+                        if buffer:
+                            self.add_comment(buffer)
+                        in_comment = False
+                        skip_till = i + 2
+                        buffer = ""
+
+                elif show_data[i] == ">":
+                    in_tag = False
+                    if buffer:
+                        self.add_tag(buffer)
+                    buffer = ""
+
+                elif show_data[i] == "&":
+                    remaining_string = show_data[i + 1 :]
+                    if not remaining_string:  # Whole content ends with &
+                        buffer += show_data[i]
+                        break
+
+                    splitlist = remaining_string.split(";", 1)
+                    token = splitlist[0]
+                    if (
+                        len(splitlist) > 1
+                    ):  # Check if there is anything remaining the token (Especially in cases where there is no ; after &)
+                        remaining_string = splitlist[1]
+
+                    token_value = ENTITY_SYMBOL_MAPPING.get(token)
+                    if token_value:
+                        buffer += token_value
+                        if (
+                            remaining_string == ""
+                        ):  # There is no content left after token
+                            break
+                        skip_till = show_data.find(
+                            remaining_string
+                        )  # Skip till the token code ends as its meaning is processed
+                    else:
+                        buffer += show_data[i]
+                else:
+                    buffer += str(show_data[i])
 
         if not in_tag and buffer:
             self.add_text(buffer)
@@ -141,6 +166,9 @@ class HTMLParser:
         tag, attributes = self.get_attributes(tag)
         self.implicit_tags(tag)
         if tag.startswith("/"):
+            if tag[1:] == "script":
+                self.type = ParseContent.TEXT.name
+
             if len(self.unfinished) == 1:
                 return
             self.close_tag()
@@ -150,6 +178,8 @@ class HTMLParser:
             node.set_attributes(attributes=attributes)
             parent.children.append(node)
         else:
+            if tag == "script":
+                self.type = ParseContent.SCRIPT.name
             parent = self.unfinished[-1] if self.unfinished else None
             node = Element(tag, parent=parent)
             node.set_attributes(attributes=attributes)
