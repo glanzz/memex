@@ -47,7 +47,7 @@ class HTMLParser:
         buffer = ""
         show_data = (
             self.body.decode(self.encoding if self.encoding else "utf-8")
-            if type(self.body) != "str"
+            if not isinstance(self.body, str)
             else self.body
         )
         in_tag = False
@@ -168,7 +168,27 @@ class HTMLParser:
         node = Comment(comment=comment, parent=parent)
         parent.children.append(node)
 
-    def close_tag(self):
+    def close_tag(self, tag):
+        if self.unfinished[-1].tag != tag:
+          unclosed_tags = [node.tag for node in self.unfinished[::-1]]
+          if tag in unclosed_tags:
+            '''tag to be closed exists in the tree so close all intermediate tags with tag to be closed as their parent'''
+            tag_to_be_closed_index = unclosed_tags.index(tag)
+            tag_to_be_closed = self.unfinished[-1-tag_to_be_closed_index] # The unclosed_tags was reversed to find most recent open tag
+            while(self.unfinished[-1] != tag_to_be_closed):
+              unclosed_tag = self.unfinished.pop()
+              tag_to_be_closed.children.append(unclosed_tag)
+            # Tag to be closed is closed normally below
+          else:
+            '''pop all text node from current parent, Create node, Add child node preserving the order to new node and close tag'''
+            self.add_tag(tag=tag)
+            node = self.unfinished[-1]
+            children = []
+            while(isinstance(node.parent.children[-1], Text)):
+              children.insert(0, Text(node.parent.children.pop().text, node))
+            node.children = children
+            # Tag to be closed is closed normally below
+        if len(self.unfinished) == 1: return
         node = self.unfinished.pop()
         parent = self.unfinished[-1]
         parent.children.append(node)
@@ -181,10 +201,7 @@ class HTMLParser:
         if tag.startswith("/"):
             if tag[1:] == "script":
                 self.type = ParseContent.TEXT.name
-
-            if len(self.unfinished) == 1:
-                return
-            self.close_tag()
+            self.close_tag(tag[1:])
         elif tag in self.__SELF_CLOSING_TAGS:
             parent = self.unfinished[-1]
             node = Element(tag, parent)
@@ -202,8 +219,9 @@ class HTMLParser:
         if not self.unfinished:
             self.implicit_tags(None)
         while len(self.unfinished) > 1:
-            self.close_tag()
-        return self.unfinished.pop()
+            self.close_tag(self.unfinished[-1].tag)
+        root = self.unfinished.pop()
+        return root
 
     @classmethod
     def print_tree(cls, node, indent=0):
