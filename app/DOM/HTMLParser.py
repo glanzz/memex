@@ -3,6 +3,17 @@ from app.DOM import Text, Element
 
 
 class HTMLParser:
+    __HEAD_TAGS = [
+        "base",
+        "basefont",
+        "bgsound",
+        "noscript",
+        "link",
+        "meta",
+        "title",
+        "style",
+        "script",
+    ]
     __SELF_CLOSING_TAGS = [
         "area",
         "base",
@@ -81,7 +92,7 @@ class HTMLParser:
                 else:
                     buffer += show_data[i]
             else:
-                buffer += show_data[i]
+                buffer += str(show_data[i])
 
         if not in_tag and buffer:
             self.add_text(buffer)
@@ -91,6 +102,7 @@ class HTMLParser:
     def add_text(self, text):
         if text.isspace():
             return  # Ignores whitespace texts
+        self.implicit_tags(None)
         parent = self.unfinished[-1]
         node = Text(text, parent)
         parent.children.append(node)
@@ -104,6 +116,7 @@ class HTMLParser:
         if tag.startswith("!"):
             return  # Ignore ! doctype and comments
         tag, attributes = self.get_attributes(tag)
+        self.implicit_tags(tag)
         if tag.startswith("/"):
             if len(self.unfinished) == 1:
                 return
@@ -120,6 +133,8 @@ class HTMLParser:
             self.unfinished.append(node)
 
     def finish(self):
+        if not self.unfinished:
+            self.implicit_tags(None)
         while len(self.unfinished) > 1:
             self.close_tag()
         return self.unfinished.pop()
@@ -129,6 +144,24 @@ class HTMLParser:
         print(" " * indent, node)
         for child in node.children:
             cls.print_tree(child, indent=indent + 2)
+
+    def implicit_tags(self, tag):
+        while True:
+            open_tags = [node.tag for node in self.unfinished]
+            if open_tags == [] and tag != "html":
+                self.add_tag("html")
+            elif open_tags == ["html"] and tag not in ["/html", "head", "body"]:
+                if tag in self.__HEAD_TAGS:
+                    self.add_tag("head")
+                else:
+                    self.add_tag("body")
+            elif (
+                open_tags == ["html", "head"]
+                and tag not in ["/head"] + self.__HEAD_TAGS
+            ):
+                self.add_tag("/head")
+            else:
+                break
 
     def get_attributes(self, text):
         parts = text.split()
