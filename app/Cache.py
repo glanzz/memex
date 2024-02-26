@@ -68,7 +68,11 @@ class Cache:
 
     @classmethod
     def invalidate(cls, key):
-        os.remove(cls.__get_file_path(cls.__CACHE_INDEX[key]["name"]))
+        try:
+            os.remove(cls.__get_file_path(cls.__CACHE_INDEX[key]["name"]))
+        except FileNotFoundError:
+            # Ignore if file not found as it was anyway meant to be invalidated
+            pass
         del cls.__CACHE_INDEX[key]
         cls.write()
 
