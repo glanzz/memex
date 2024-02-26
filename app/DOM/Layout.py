@@ -10,7 +10,7 @@ from app.constants import (
     FontScript,
     TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK,
     SOFT_HYPEN,
-    FontFamily
+    FontFamily,
 )
 from app.DOM import Text
 
@@ -67,94 +67,110 @@ class Layout:
             self.flush()
             return
 
-        if self.caps: word = word.upper()
+        if self.caps:
+            word = word.upper()
 
         word_width = font.measure(word)
 
         if (self.cursor_x + word_width) > (self.width - HSTEP) and not self.pre:
-          remaining_width = self.width - self.cursor_x - HSTEP
-          if remaining_width > TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK * self.width:
-            slice_index = self.get_slice_index_for_accomodation(font, word, remaining_width)
-            accomodable_text = self.__get_accomodable_text(word[:slice_index+1])
+            remaining_width = self.width - self.cursor_x - HSTEP
+            if remaining_width > TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK * self.width:
+                slice_index = self.get_slice_index_for_accomodation(
+                    font, word, remaining_width
+                )
+                accomodable_text = self.__get_accomodable_text(word[: slice_index + 1])
 
-            '''Accomodate text add new line and insert remaining text by recursive call to add text'''
-            self.add_word(accomodable_text)
-            self.flush()
-            self.add_word(word[slice_index + 1:])
-            return
-          else:
-            self.flush()
+                """Accomodate text add new line and insert remaining text by recursive call to add text"""
+                self.add_word(accomodable_text)
+                self.flush()
+                self.add_word(word[slice_index + 1 :])
+                return
+            else:
+                self.flush()
         self.line.append((self.cursor_x, word, font, self.script))
         self.cursor_x += word_width + font.measure(" ")
 
     def __get_accomodable_text(self, text):
-      '''Text shown with - after it as it breaks'''
-      return f"{text}-"
+        """Text shown with - after it as it breaks"""
+        return f"{text}-"
 
     def get_slice_index_for_accomodation(self, font, text, width):
-      if SOFT_HYPEN in text:
-        '''If soft hypen already available break at that point'''
-        return text.find(SOFT_HYPEN)
+        if SOFT_HYPEN in text:
+            """If soft hypen already available break at that point"""
+            return text.find(SOFT_HYPEN)
 
-      for i in range(len(text)):
-        if font.measure(self.__get_accomodable_text(text[:i+1])) >= width:
-          return i - 1 # Current index exceeds accomodable space so use next previous index
-      return 0
+        for i in range(len(text)):
+            if font.measure(self.__get_accomodable_text(text[: i + 1])) >= width:
+                return (
+                    i - 1
+                )  # Current index exceeds accomodable space so use next previous index
+        return 0
 
     def flush(self):
         if not self.line:
             return
-        max_ascent = max([font.metrics("ascent") for x, word, font, super_script in self.line])
-        max_descent = max([font.metrics("descent") for x, word, font, super_script in self.line])
+        max_ascent = max(
+            [font.metrics("ascent") for x, word, font, super_script in self.line]
+        )
+        max_descent = max(
+            [font.metrics("descent") for x, word, font, super_script in self.line]
+        )
 
         baseline = self.cursor_y + (DEFAULT_LINE_HEIGHT * max_ascent)
         for x, word, font, script in self.line:
-            self.display_list.append((x, self.get_y(baseline, max_ascent, max_descent, font, script), word, font))
+            self.display_list.append(
+                (
+                    x,
+                    self.get_y(baseline, max_ascent, max_descent, font, script),
+                    word,
+                    font,
+                )
+            )
 
         self.cursor_y = baseline + (DEFAULT_LINE_HEIGHT * max_descent)
         self.cursor_x = HSTEP
         self.line = []
-    
+
     def get_y(self, baseline, max_ascent, max_descent, font, script):
-      y = baseline - font.metrics("ascent")
-      if script == FontScript.SUPER.name:
-        y = baseline - max_ascent
-      elif script == FontScript.SUB.name:
-        y = baseline + max_descent
-      return y
-    
+        y = baseline - font.metrics("ascent")
+        if script == FontScript.SUPER.name:
+            y = baseline - max_ascent
+        elif script == FontScript.SUB.name:
+            y = baseline + max_descent
+        return y
+
     def open_tag(self, tag):
         if tag == "i":
             self.style = FontStyle.ITALIC.value
         elif tag == "b":
             self.weight = FontWeight.BOLD.value
-        
+
         elif tag == "big":
             self.size = FontSize.BIG.value
-        
+
         elif tag == "small":
             self.size = FontSize.SMALL.value
-        
+
         elif tag == "br/" or tag == "br":
             self.flush()
         elif tag == "sup":
             self.script = FontScript.SUPER.name
             self.size = self.size // 2
-        
+
         elif tag == "sub":
             self.script = FontScript.SUB.name
             self.size = self.size // 2
-        
+
         elif tag == "abbr":
             self.size = int(self.size / 1.5)
             self.caps = True
             self.weight = FontWeight.BOLD.value
-       
+
         elif tag == "pre":
             self.pre = True
             self.family = FontFamily.COURIER_NEW.value
             self.flush()
-    
+
     def close_tag(self, tag):
         if tag == "i":
             self.style = FontStyle.ROMAN.value

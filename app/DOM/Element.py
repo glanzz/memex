@@ -4,9 +4,9 @@ class Element:
         self.children = []
         self.parent = parent
         self.attributes = {}
-    
+
     def __repr__(self) -> str:
         return f"<{self.tag}>"
-    
+
     def set_attributes(self, attributes):
         self.attributes = attributes

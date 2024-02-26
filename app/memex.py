@@ -115,7 +115,11 @@ class Memex:
     def load(self, url=DEFAULT_URL):
         url = URL(url=url if url else DEFAULT_URL)
         url.scheme_request.request()
-        self.nodes = HTMLParser(body=url.scheme_request.body, encoding=url.scheme_request.body_encoding, view_mode=url.get_view_mode()).parse()
+        self.nodes = HTMLParser(
+            body=url.scheme_request.body,
+            encoding=url.scheme_request.body_encoding,
+            view_mode=url.get_view_mode(),
+        ).parse()
         self.layout = Layout(self.nodes, self.width, self.height)
         self.draw()
         self.window.mainloop()

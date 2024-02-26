@@ -3,7 +3,6 @@ class Text:
         self.text = text
         self.parent = parent
         self.children = []
-    
+
     def __repr__(self) -> str:
         return self.text
-
