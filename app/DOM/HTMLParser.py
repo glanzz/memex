@@ -30,7 +30,7 @@ class HTMLParser:
         buffer = ""
         show_data = (
             self.body.decode(self.encoding if self.encoding else "utf-8")
-            if self.encoding != None
+            if type(self.body) != "str"
             else self.body
         )
         in_tag = False
