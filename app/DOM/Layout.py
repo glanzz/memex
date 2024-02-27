@@ -32,7 +32,12 @@ class FontCache:
 
 
 class Layout:
-    def __init__(self, nodes, width, height) -> None:
+    def __init__(self, node, width, height, previous, parent) -> None:
+        self.node = node
+        self.children = []
+        self.previous = previous
+        self.parent = parent
+
         self.display_list = []
         self.font_cache = FontCache()
 
@@ -51,11 +56,9 @@ class Layout:
 
         self.line = []
 
-        self.generate_layout(nodes)
-
-    def generate_layout(self, nodes):
-        if nodes:
-            self.recurse(tree=nodes)
+    def layout(self):
+        if self.node:
+            self.recurse(tree=self.node)
         self.flush()
         self.content_height = self.cursor_y
 

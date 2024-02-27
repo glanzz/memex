@@ -3,3 +3,4 @@ from app.DOM.Text import *
 from app.DOM.Comment import *
 from app.DOM.Layout import *
 from app.DOM.HTMLParser import *
+from app.DOM.DocumentLayout import *

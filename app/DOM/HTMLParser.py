@@ -51,7 +51,7 @@ class HTMLParser:
             else self.body
         )
         in_tag = False
-        tag_quote = "" # Determines if the currently under quoted attribute of the tag
+        tag_quote = ""  # Determines if the currently under quoted attribute of the tag
         in_comment = False
 
         skip_till = None
@@ -79,10 +79,10 @@ class HTMLParser:
                     buffer += show_data[i]
 
             elif self.type == ParseContent.TAG_QUOTE.name:
-              if show_data[i] == tag_quote:
-                tag_quote = ""
-                self.type = ParseContent.TEXT.name
-              buffer += show_data[i]
+                if show_data[i] == tag_quote:
+                    tag_quote = ""
+                    self.type = ParseContent.TEXT.name
+                buffer += show_data[i]
 
             else:
                 if show_data[i] == "<":
@@ -142,9 +142,9 @@ class HTMLParser:
 
                 else:
                     if in_tag and show_data[i] in ["'", '"']:
-                      '''If in_tag and quote is found then consider remaining as quote and store current quote'''
-                      self.type = ParseContent.TAG_QUOTE.name
-                      tag_quote = show_data[i]
+                        """If in_tag and quote is found then consider remaining as quote and store current quote"""
+                        self.type = ParseContent.TAG_QUOTE.name
+                        tag_quote = show_data[i]
 
                     buffer += str(show_data[i])
 
@@ -171,25 +171,28 @@ class HTMLParser:
 
     def close_tag(self, tag):
         if self.unfinished[-1].tag != tag:
-          unclosed_tags = [node.tag for node in self.unfinished[::-1]]
-          if tag in unclosed_tags:
-            '''tag to be closed exists in the tree so close all intermediate tags with tag to be closed as their parent'''
-            tag_to_be_closed_index = unclosed_tags.index(tag)
-            tag_to_be_closed = self.unfinished[-1-tag_to_be_closed_index] # The unclosed_tags was reversed to find most recent open tag
-            while(self.unfinished[-1] != tag_to_be_closed):
-              unclosed_tag = self.unfinished.pop()
-              tag_to_be_closed.children.append(unclosed_tag)
-            # Tag to be closed is closed normally below
-          else:
-            '''pop all text node from current parent, Create node, Add child node preserving the order to new node and close tag'''
-            self.add_tag(tag=tag)
-            node = self.unfinished[-1]
-            children = []
-            while(isinstance(node.parent.children[-1], Text)):
-              children.insert(0, Text(node.parent.children.pop().text, node))
-            node.children = children
-            # Tag to be closed is closed normally below
-        if len(self.unfinished) == 1: return
+            unclosed_tags = [node.tag for node in self.unfinished[::-1]]
+            if tag in unclosed_tags:
+                """tag to be closed exists in the tree so close all intermediate tags with tag to be closed as their parent"""
+                tag_to_be_closed_index = unclosed_tags.index(tag)
+                tag_to_be_closed = self.unfinished[
+                    -1 - tag_to_be_closed_index
+                ]  # The unclosed_tags was reversed to find most recent open tag
+                while self.unfinished[-1] != tag_to_be_closed:
+                    unclosed_tag = self.unfinished.pop()
+                    tag_to_be_closed.children.append(unclosed_tag)
+                # Tag to be closed is closed normally below
+            else:
+                """pop all text node from current parent, Create node, Add child node preserving the order to new node and close tag"""
+                self.add_tag(tag=tag)
+                node = self.unfinished[-1]
+                children = []
+                while isinstance(node.parent.children[-1], Text):
+                    children.insert(0, Text(node.parent.children.pop().text, node))
+                node.children = children
+                # Tag to be closed is closed normally below
+        if len(self.unfinished) == 1:
+            return
         node = self.unfinished.pop()
         parent = self.unfinished[-1]
         parent.children.append(node)

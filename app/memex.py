@@ -47,7 +47,8 @@ class Memex:
         self.window.bind("<Configure>", self.resize)
 
         # Initialize content height to default
-        self.layout = Layout([], self.width, self.height)
+        self.document = Layout([], self.width, self.height, None, None)
+        self.document.layout()
 
     def __enter__(self):
         Cache.safe_init_folder()
@@ -57,13 +58,14 @@ class Memex:
         if e.height > 1 and e.width > 1:
             self.height = e.height
             self.width = e.width
-            self.layout = Layout(self.nodes, self.width, self.height)
+            self.document = Layout(self.nodes, self.width, self.height, None, None)
+            self.document.layout()
             self.draw()
 
     def handle_slide(self, e, delta, unit=None):
         if self.height > 1 and self.width > 1:
             if e == tkinter.MOVETO:
-                self.set_scroll(float(delta) * self.layout.content_height)
+                self.set_scroll(float(delta) * self.document.content_height)
                 self.draw()
             elif e == tkinter.SCROLL:
                 if unit == tkinter.PAGES:
@@ -71,12 +73,12 @@ class Memex:
                     self.draw()
 
     def set_slider(self):
-        start_height = self.scroll / self.layout.content_height
-        current_height = self.height / self.layout.content_height
+        start_height = self.scroll / self.document.content_height
+        current_height = self.height / self.document.content_height
         self.scrollbar.set(start_height, start_height + current_height)
 
     def get_scroll_max(self):
-        return self.layout.content_height - self.height
+        return self.document.content_height - self.height
 
     def get_scroll_min(self):
         return 0
@@ -120,13 +122,14 @@ class Memex:
             encoding=url.scheme_request.body_encoding,
             view_mode=url.get_view_mode(),
         ).parse()
-        self.layout = Layout(self.nodes, self.width, self.height)
+        self.document = Layout(self.nodes, self.width, self.height, None, None)
+        self.document.layout()
         self.draw()
         self.window.mainloop()
 
     def draw(self):
         self.canvas.delete("all")
-        for x, y, c, font in self.layout.display_list:
+        for x, y, c, font in self.document.display_list:
             if y > self.scroll + self.height:
                 continue
             if y + VSTEP < self.scroll:
