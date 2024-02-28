@@ -11,8 +11,9 @@ from app.constants import (
     TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK,
     SOFT_HYPEN,
     FontFamily,
+    BlockType,
 )
-from app.DOM import Text, Comment
+from app.DOM import Text, Comment, Element
 
 
 class FontCache:
@@ -32,6 +33,14 @@ class FontCache:
 
 
 class Layout:
+    __BLOCK_ELEMENTS = [
+        "html", "body", "article", "section", "nav", "aside",
+        "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
+        "footer", "address", "p", "hr", "pre", "blockquote",
+        "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
+        "figcaption", "main", "div", "table", "form", "fieldset",
+        "legend", "details", "summary"
+    ]
     def __init__(self, node, width, height, previous, parent) -> None:
         self.node = node
         self.children = []
@@ -57,9 +66,30 @@ class Layout:
         self.line = []
 
     def layout(self):
-        if self.node:
-            self.recurse(tree=self.node)
-        self.flush()
+        if not self.node:
+            return
+        mode = self.layout_mode()
+        if mode == BlockType.BLOCK.name:
+            previous = None
+            for child in self.node.children:
+                next = Layout(child, self.width, self.height, self, previous)
+                self.children.append(next)
+                previous = next
+        else:
+            if self.node:
+                self.cursor_x = 0
+                self.cursor_y = 0
+                self.weight = "normal"
+                self.style = "roman"
+                self.size = 16
+
+                self.line = []
+                self.recurse(tree=self.node)
+                self.flush()
+        for child in self.children:
+            child.layout()
+        for child in self.children:
+            self.display_list.extend(child.display_list)
         self.content_height = self.cursor_y
 
     def add_word(self, word):
@@ -212,3 +242,21 @@ class Layout:
             for child in tree.children:
                 self.recurse(child)
             self.close_tag(tree.tag)
+
+    def layout_intermediate(self):
+        previous = None
+        for child in self.node.children:
+            next = Layout(child, self.width, self.height, self, previous)
+            self.children.append(next)
+            previous = next
+    
+    def layout_mode(self):
+        if isinstance(self.node, Text):
+            return BlockType.INLINE.name
+        elif self.node and any([isinstance(child, Element) and child.tag in self.__BLOCK_ELEMENTS for child in self.node.children]):
+            return BlockType.BLOCK.name
+        elif self.node.children:
+            return BlockType.INLINE.name
+        else:
+            return BlockType.BLOCK.name
+    

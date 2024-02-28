@@ -47,7 +47,7 @@ class Memex:
         self.window.bind("<Configure>", self.resize)
 
         # Initialize content height to default
-        self.document = Layout([], self.width, self.height, None, None)
+        self.document = Layout(None, self.width, self.height, None, None)
         self.document.layout()
 
     def __enter__(self):
