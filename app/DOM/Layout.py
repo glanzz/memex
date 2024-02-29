@@ -41,20 +41,22 @@ class Layout:
         "figcaption", "main", "div", "table", "form", "fieldset",
         "legend", "details", "summary"
     ]
-    def __init__(self, node, width, height, previous, parent) -> None:
+    def __init__(self, node, parent, previous) -> None:
         self.node = node
         self.children = []
         self.previous = previous
         self.parent = parent
 
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+
         self.display_list = []
         self.font_cache = FontCache()
 
-        self.cursor_x = HSTEP
-        self.cursor_y = VSTEP
-        self.height = height
-        self.width = width
-        self.content_height = self.height
+        self.cursor_x = 0
+        self.cursor_y = 0
         self.weight = FontWeight.NORMAL.value
         self.style = FontStyle.ROMAN.value
         self.size = FontSize.DEFAULT.value
@@ -64,15 +66,19 @@ class Layout:
         self.family = FontFamily.DEFAULT.value
 
         self.line = []
+    
+    def __repr__(self) -> str:
+        return f"Layout node:{self.node} height:{self.height} width:{self.width} "
 
     def layout(self):
-        if not self.node:
-            return
+        self.x = self.parent.x
+        self.width = self.parent.width
+        self.y = (self.previous.y + self.previous.height) if self.previous else self.parent.y
         mode = self.layout_mode()
         if mode == BlockType.BLOCK.name:
             previous = None
             for child in self.node.children:
-                next = Layout(child, self.width, self.height, self, previous)
+                next = Layout(child, self, previous)
                 self.children.append(next)
                 previous = next
         else:
@@ -86,11 +92,15 @@ class Layout:
                 self.line = []
                 self.recurse(tree=self.node)
                 self.flush()
+                self.height = self.cursor_y
+
         for child in self.children:
             child.layout()
         for child in self.children:
             self.display_list.extend(child.display_list)
-        self.content_height = self.cursor_y
+        if mode == BlockType.BLOCK.name:
+            self.height = sum([
+                child.height if child.height else 0 for child in self.children])
 
     def add_word(self, word):
         # Handle new line character
@@ -105,8 +115,8 @@ class Layout:
 
         word_width = font.measure(word)
 
-        if (self.cursor_x + word_width) > (self.width - HSTEP) and not self.pre:
-            remaining_width = self.width - self.cursor_x - HSTEP
+        if (self.cursor_x + word_width) > self.width and not self.pre:
+            remaining_width = self.width - self.cursor_x
             if remaining_width > TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK * self.width:
                 slice_index = self.get_slice_index_for_accomodation(
                     font, word, remaining_width
@@ -150,7 +160,8 @@ class Layout:
         )
 
         baseline = self.cursor_y + (DEFAULT_LINE_HEIGHT * max_ascent)
-        for x, word, font, script in self.line:
+        for rel_x, word, font, script in self.line:
+            x = self.x + rel_x
             self.display_list.append(
                 (
                     x,
@@ -161,7 +172,7 @@ class Layout:
             )
 
         self.cursor_y = baseline + (DEFAULT_LINE_HEIGHT * max_descent)
-        self.cursor_x = HSTEP
+        self.cursor_x = 0
         self.line = []
 
     def get_y(self, baseline, max_ascent, max_descent, font, script):
@@ -170,7 +181,7 @@ class Layout:
             y = baseline - max_ascent
         elif script == FontScript.SUB.name:
             y = baseline + max_descent
-        return y
+        return self.y + y
 
     def open_tag(self, tag):
         if tag == "i":
@@ -246,7 +257,7 @@ class Layout:
     def layout_intermediate(self):
         previous = None
         for child in self.node.children:
-            next = Layout(child, self.width, self.height, self, previous)
+            next = Layout(child, parent=self, previous=previous)
             self.children.append(next)
             previous = next
     
@@ -255,7 +266,7 @@ class Layout:
             return BlockType.INLINE.name
         elif self.node and any([isinstance(child, Element) and child.tag in self.__BLOCK_ELEMENTS for child in self.node.children]):
             return BlockType.BLOCK.name
-        elif self.node.children:
+        elif self.node and self.node.children:
             return BlockType.INLINE.name
         else:
             return BlockType.BLOCK.name

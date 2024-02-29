@@ -10,7 +10,7 @@ from app.constants import (
 )
 from app.URL import URL
 from app.Cache import Cache
-from app.DOM import Layout, HTMLParser
+from app.DOM import HTMLParser, DocumentLayout
 
 
 class Memex:
@@ -47,8 +47,7 @@ class Memex:
         self.window.bind("<Configure>", self.resize)
 
         # Initialize content height to default
-        self.document = Layout(None, self.width, self.height, None, None)
-        self.document.layout()
+        self.document = None
 
     def __enter__(self):
         Cache.safe_init_folder()
@@ -58,7 +57,7 @@ class Memex:
         if e.height > 1 and e.width > 1:
             self.height = e.height
             self.width = e.width
-            self.document = Layout(self.nodes, self.width, self.height, None, None)
+            self.document = DocumentLayout(self.nodes, self.width, self.height)
             self.document.layout()
             self.draw()
 
@@ -122,7 +121,7 @@ class Memex:
             encoding=url.scheme_request.body_encoding,
             view_mode=url.get_view_mode(),
         ).parse()
-        self.document = Layout(self.nodes, self.width, self.height, None, None)
+        self.document = DocumentLayout(self.nodes, self.width, self.height)
         self.document.layout()
         self.draw()
         self.window.mainloop()
