@@ -34,13 +34,45 @@ class FontCache:
 
 class Layout:
     __BLOCK_ELEMENTS = [
-        "html", "body", "article", "section", "nav", "aside",
-        "h1", "h2", "h3", "h4", "h5", "h6", "hgroup", "header",
-        "footer", "address", "p", "hr", "pre", "blockquote",
-        "ol", "ul", "menu", "li", "dl", "dt", "dd", "figure",
-        "figcaption", "main", "div", "table", "form", "fieldset",
-        "legend", "details", "summary"
+        "html",
+        "body",
+        "article",
+        "section",
+        "nav",
+        "aside",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hgroup",
+        "header",
+        "footer",
+        "address",
+        "p",
+        "hr",
+        "pre",
+        "blockquote",
+        "ol",
+        "ul",
+        "menu",
+        "li",
+        "dl",
+        "dt",
+        "dd",
+        "figure",
+        "figcaption",
+        "main",
+        "div",
+        "table",
+        "form",
+        "fieldset",
+        "legend",
+        "details",
+        "summary",
     ]
+
     def __init__(self, node, parent, previous) -> None:
         self.node = node
         self.children = []
@@ -66,14 +98,16 @@ class Layout:
         self.family = FontFamily.DEFAULT.value
 
         self.line = []
-    
+
     def __repr__(self) -> str:
         return f"Layout node:{self.node} height:{self.height} width:{self.width} "
 
     def layout(self):
         self.x = self.parent.x
         self.width = self.parent.width
-        self.y = (self.previous.y + self.previous.height) if self.previous else self.parent.y
+        self.y = (
+            (self.previous.y + self.previous.height) if self.previous else self.parent.y
+        )
         mode = self.layout_mode()
         if mode == BlockType.BLOCK.name:
             previous = None
@@ -99,8 +133,9 @@ class Layout:
         for child in self.children:
             self.display_list.extend(child.display_list)
         if mode == BlockType.BLOCK.name:
-            self.height = sum([
-                child.height if child.height else 0 for child in self.children])
+            self.height = sum(
+                [child.height if child.height else 0 for child in self.children]
+            )
 
     def add_word(self, word):
         # Handle new line character
@@ -260,14 +295,18 @@ class Layout:
             next = Layout(child, parent=self, previous=previous)
             self.children.append(next)
             previous = next
-    
+
     def layout_mode(self):
         if isinstance(self.node, Text):
             return BlockType.INLINE.name
-        elif self.node and any([isinstance(child, Element) and child.tag in self.__BLOCK_ELEMENTS for child in self.node.children]):
+        elif self.node and any(
+            [
+                isinstance(child, Element) and child.tag in self.__BLOCK_ELEMENTS
+                for child in self.node.children
+            ]
+        ):
             return BlockType.BLOCK.name
         elif self.node and self.node.children:
             return BlockType.INLINE.name
         else:
             return BlockType.BLOCK.name
-    
