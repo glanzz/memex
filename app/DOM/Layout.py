@@ -11,8 +11,9 @@ from app.constants import (
     TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK,
     SOFT_HYPEN,
     FontFamily,
+    BlockType,
 )
-from app.DOM import Text, Comment
+from app.DOM import Text, Comment, Element
 
 
 class FontCache:
@@ -32,15 +33,62 @@ class FontCache:
 
 
 class Layout:
-    def __init__(self, nodes, width, height) -> None:
+    __BLOCK_ELEMENTS = [
+        "html",
+        "body",
+        "article",
+        "section",
+        "nav",
+        "aside",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "hgroup",
+        "header",
+        "footer",
+        "address",
+        "p",
+        "hr",
+        "pre",
+        "blockquote",
+        "ol",
+        "ul",
+        "menu",
+        "li",
+        "dl",
+        "dt",
+        "dd",
+        "figure",
+        "figcaption",
+        "main",
+        "div",
+        "table",
+        "form",
+        "fieldset",
+        "legend",
+        "details",
+        "summary",
+    ]
+
+    def __init__(self, node, parent, previous) -> None:
+        self.node = node
+        self.children = []
+        self.previous = previous
+        self.parent = parent
+
+        self.x = None
+        self.y = None
+        self.width = None
+        self.height = None
+
         self.display_list = []
         self.font_cache = FontCache()
 
-        self.cursor_x = HSTEP
-        self.cursor_y = VSTEP
-        self.height = height
-        self.width = width
-        self.content_height = self.height
+        self.cursor_x = 0
+        self.cursor_y = 0
         self.weight = FontWeight.NORMAL.value
         self.style = FontStyle.ROMAN.value
         self.size = FontSize.DEFAULT.value
@@ -51,13 +99,43 @@ class Layout:
 
         self.line = []
 
-        self.generate_layout(nodes)
+    def __repr__(self) -> str:
+        return f"Layout node:{self.node} height:{self.height} width:{self.width} "
 
-    def generate_layout(self, nodes):
-        if nodes:
-            self.recurse(tree=nodes)
-        self.flush()
-        self.content_height = self.cursor_y
+    def layout(self):
+        self.x = self.parent.x
+        self.width = self.parent.width
+        self.y = (
+            (self.previous.y + self.previous.height) if self.previous else self.parent.y
+        )
+        mode = self.layout_mode()
+        if mode == BlockType.BLOCK.name:
+            previous = None
+            for child in self.node.children:
+                next = Layout(child, self, previous)
+                self.children.append(next)
+                previous = next
+        else:
+            if self.node:
+                self.cursor_x = 0
+                self.cursor_y = 0
+                self.weight = "normal"
+                self.style = "roman"
+                self.size = 16
+
+                self.line = []
+                self.recurse(tree=self.node)
+                self.flush()
+                self.height = self.cursor_y
+
+        for child in self.children:
+            child.layout()
+        for child in self.children:
+            self.display_list.extend(child.display_list)
+        if mode == BlockType.BLOCK.name:
+            self.height = sum(
+                [child.height if child.height else 0 for child in self.children]
+            )
 
     def add_word(self, word):
         # Handle new line character
@@ -72,8 +150,8 @@ class Layout:
 
         word_width = font.measure(word)
 
-        if (self.cursor_x + word_width) > (self.width - HSTEP) and not self.pre:
-            remaining_width = self.width - self.cursor_x - HSTEP
+        if (self.cursor_x + word_width) > self.width and not self.pre:
+            remaining_width = self.width - self.cursor_x
             if remaining_width > TOLERABLE_WIDTH_PERCENT_FOR_TEXT_BREAK * self.width:
                 slice_index = self.get_slice_index_for_accomodation(
                     font, word, remaining_width
@@ -117,7 +195,8 @@ class Layout:
         )
 
         baseline = self.cursor_y + (DEFAULT_LINE_HEIGHT * max_ascent)
-        for x, word, font, script in self.line:
+        for rel_x, word, font, script in self.line:
+            x = self.x + rel_x
             self.display_list.append(
                 (
                     x,
@@ -128,7 +207,7 @@ class Layout:
             )
 
         self.cursor_y = baseline + (DEFAULT_LINE_HEIGHT * max_descent)
-        self.cursor_x = HSTEP
+        self.cursor_x = 0
         self.line = []
 
     def get_y(self, baseline, max_ascent, max_descent, font, script):
@@ -137,7 +216,7 @@ class Layout:
             y = baseline - max_ascent
         elif script == FontScript.SUB.name:
             y = baseline + max_descent
-        return y
+        return self.y + y
 
     def open_tag(self, tag):
         if tag == "i":
@@ -209,3 +288,25 @@ class Layout:
             for child in tree.children:
                 self.recurse(child)
             self.close_tag(tree.tag)
+
+    def layout_intermediate(self):
+        previous = None
+        for child in self.node.children:
+            next = Layout(child, parent=self, previous=previous)
+            self.children.append(next)
+            previous = next
+
+    def layout_mode(self):
+        if isinstance(self.node, Text):
+            return BlockType.INLINE.name
+        elif self.node and any(
+            [
+                isinstance(child, Element) and child.tag in self.__BLOCK_ELEMENTS
+                for child in self.node.children
+            ]
+        ):
+            return BlockType.BLOCK.name
+        elif self.node and self.node.children:
+            return BlockType.INLINE.name
+        else:
+            return BlockType.BLOCK.name
